@@ -2372,7 +2372,7 @@ var app = (function () {
 
         let list = JSON.parse(localStorage.getItem(HABIT_DATA));
         if (!list) {
-            return []
+            return writable([])
         }
         list.forEach((habit) => {
             const habitDate = new Date(habit.achievedDate);
