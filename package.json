@@ -17,6 +17,7 @@
         "@rollup/plugin-commonjs": "^17.0.0",
         "@rollup/plugin-json": "^4.1.0",
         "@rollup/plugin-node-resolve": "^11.0.0",
+        "@sveltejs/adapter-static": "^1.0.0-next.43",
         "babel-jest": "^29.0.3",
         "jest": "^29.0.3",
         "rollup": "^2.3.4",
