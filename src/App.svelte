@@ -10,6 +10,9 @@
     import ToDoList from './components/ToDoList.svelte'
     import Calendar from './components/Calendar.svelte'
 
+    const basepath = window.location.href.includes('github.io')
+        ? '/productivity-app/'
+        : '/'
     export let name
 </script>
 
@@ -17,15 +20,15 @@
     <h1>Hello {name}!</h1>
 
     <nav>
-        <a href="/#/todo">Home</a>
-        <a href="/#/diet">Diet</a>
-        <a href="/#/exercise">Exercise</a>
-        <a href="/#/habit">Habits</a>
-        <a href="/#/journal">Journal</a>
-        <a href="/#/mood">Mood</a>
-        <a href="/#/sleep">Sleep</a>
-        <a href="/#/todo">To-Do</a>
-        <a href="/#/calendar">Calendar</a>
+        <a href="{basepath}#/todo">Home</a>
+        <a href="{basepath}#/diet">Diet</a>
+        <a href="{basepath}#/exercise">Exercise</a>
+        <a href="{basepath}#/habit">Habits</a>
+        <a href="{basepath}#/journal">Journal</a>
+        <a href="{basepath}#/mood">Mood</a>
+        <a href="{basepath}#/sleep">Sleep</a>
+        <a href="{basepath}#/todo">To-Do</a>
+        <a href="{basepath}#/calendar">Calendar</a>
     </nav>
 </header>
 <Router

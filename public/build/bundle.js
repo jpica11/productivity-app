@@ -5252,27 +5252,27 @@ var app = (function () {
     		},
     		h: function hydrate() {
     			attr_dev(h1, "class", "svelte-1tdqz32");
-    			add_location(h1, file, 16, 4, 586);
-    			attr_dev(a0, "href", "/#/todo");
-    			add_location(a0, file, 19, 8, 628);
-    			attr_dev(a1, "href", "/#/diet");
-    			add_location(a1, file, 20, 8, 663);
-    			attr_dev(a2, "href", "/#/exercise");
-    			add_location(a2, file, 21, 8, 698);
-    			attr_dev(a3, "href", "/#/habit");
-    			add_location(a3, file, 22, 8, 741);
-    			attr_dev(a4, "href", "/#/journal");
-    			add_location(a4, file, 23, 8, 779);
-    			attr_dev(a5, "href", "/#/mood");
-    			add_location(a5, file, 24, 8, 820);
-    			attr_dev(a6, "href", "/#/sleep");
-    			add_location(a6, file, 25, 8, 855);
-    			attr_dev(a7, "href", "/#/todo");
-    			add_location(a7, file, 26, 8, 892);
-    			attr_dev(a8, "href", "/#/calendar");
-    			add_location(a8, file, 27, 8, 928);
-    			add_location(nav, file, 18, 4, 614);
-    			add_location(header, file, 15, 0, 573);
+    			add_location(h1, file, 19, 4, 695);
+    			attr_dev(a0, "href", "" + (/*basepath*/ ctx[1] + "#/todo"));
+    			add_location(a0, file, 22, 8, 737);
+    			attr_dev(a1, "href", "" + (/*basepath*/ ctx[1] + "#/diet"));
+    			add_location(a1, file, 23, 8, 781);
+    			attr_dev(a2, "href", "" + (/*basepath*/ ctx[1] + "#/exercise"));
+    			add_location(a2, file, 24, 8, 825);
+    			attr_dev(a3, "href", "" + (/*basepath*/ ctx[1] + "#/habit"));
+    			add_location(a3, file, 25, 8, 877);
+    			attr_dev(a4, "href", "" + (/*basepath*/ ctx[1] + "#/journal"));
+    			add_location(a4, file, 26, 8, 924);
+    			attr_dev(a5, "href", "" + (/*basepath*/ ctx[1] + "#/mood"));
+    			add_location(a5, file, 27, 8, 974);
+    			attr_dev(a6, "href", "" + (/*basepath*/ ctx[1] + "#/sleep"));
+    			add_location(a6, file, 28, 8, 1018);
+    			attr_dev(a7, "href", "" + (/*basepath*/ ctx[1] + "#/todo"));
+    			add_location(a7, file, 29, 8, 1064);
+    			attr_dev(a8, "href", "" + (/*basepath*/ ctx[1] + "#/calendar"));
+    			add_location(a8, file, 30, 8, 1109);
+    			add_location(nav, file, 21, 4, 723);
+    			add_location(header, file, 18, 0, 682);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, header, anchor);
@@ -5345,6 +5345,11 @@ var app = (function () {
     function instance($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots('App', slots, []);
+
+    	const basepath = window.location.href.includes('github.io')
+    	? '/productivity-app/'
+    	: '/';
+
     	let { name } = $$props;
     	const writable_props = ['name'];
 
@@ -5366,6 +5371,7 @@ var app = (function () {
     		SleepTracker,
     		ToDoList,
     		Calendar,
+    		basepath,
     		name
     	});
 
@@ -5377,7 +5383,7 @@ var app = (function () {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [name];
+    	return [name, basepath];
     }
 
     class App extends SvelteComponentDev {
