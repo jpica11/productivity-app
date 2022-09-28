@@ -47,6 +47,9 @@ const getHabitList = () => {
     const currentDate = new Date()
 
     let list = JSON.parse(localStorage.getItem(HABIT_DATA))
+    if (!list) {
+        return []
+    }
     list.forEach((habit) => {
         const habitDate = new Date(habit.achievedDate)
 
