@@ -1,0 +1,6 @@
+{
+    "appId": "com.jpd.productivity",
+    "appName": "Health and Productivity",
+    "webDir": "public",
+    "bundledWebRuntime": false
+}
