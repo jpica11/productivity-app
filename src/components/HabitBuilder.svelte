@@ -47,7 +47,7 @@
 
     <div class="prior-entries">
         {#each $habitList as habit, index}
-            <div>
+            <div id="habit_{index}">
                 <h4>{habit.name}:</h4>
                 <input
                     type="checkbox"
@@ -58,10 +58,10 @@
                 <span on:click={() => deleteEntry(index)}>
                     Remove habit: &#10060;
                 </span>
-            </div>
 
-            Calendar:
-            <Calendar frequency={habit.frequency} />
+                Calendar:
+                <Calendar frequency={habit.frequency} habitIndex={index} />
+            </div>
         {/each}
     </div>
     <form class="journal-form">

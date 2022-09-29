@@ -1,6 +1,7 @@
 <script>
     export let frequency
-    console.log(frequency)
+    export let habitIndex
+
     const days = ['S', 'M', 'T', 'W', 'Th', 'F', 'S']
 
     const months = [
@@ -42,7 +43,7 @@
     let trailingDays = 6 - (lastDayOfMonth % 7)
 
     const toggleComplete = (i) => {
-        const element = document.getElementById(`day_${i}`)
+        const element = document.querySelector(`#habit_${habitIndex} #day_${i}`)
         if (element.classList.contains('completed')) {
             element.classList.remove('completed')
         } else {
