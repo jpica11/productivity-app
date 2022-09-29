@@ -67,7 +67,6 @@
             (date) => date.day === day && date.month === currentMonth
         )
 
-        console.log(JSON.stringify(habit.completedDates))
         return tempDate.length > 0
     }
 </script>

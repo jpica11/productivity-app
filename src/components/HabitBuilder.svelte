@@ -57,7 +57,7 @@
                     Remove habit: &#10060;
                 </span>
 
-                Calendar: {JSON.stringify(habit.completedDates)}
+                Calendar:
                 <Calendar bind:habit habitIndex={index} />
             </div>
         {/each}
