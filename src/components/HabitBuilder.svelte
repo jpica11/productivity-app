@@ -8,12 +8,10 @@
         frequency: '',
         achieved: false,
         achievedDate: undefined,
+        completedDates: [],
     }
 
     const addToList = () => {
-        console.log(
-            `addToList: ${JSON.stringify(habit)} ${JSON.stringify(habit)}`
-        )
         window.event.preventDefault()
 
         $habitList = [
@@ -59,8 +57,8 @@
                     Remove habit: &#10060;
                 </span>
 
-                Calendar:
-                <Calendar frequency={habit.frequency} habitIndex={index} />
+                Calendar: {JSON.stringify(habit.completedDates)}
+                <Calendar bind:habit habitIndex={index} />
             </div>
         {/each}
     </div>

@@ -1,5 +1,5 @@
 <script>
-    export let frequency
+    export let habit
     export let habitIndex
 
     const days = ['S', 'M', 'T', 'W', 'Th', 'F', 'S']
@@ -42,13 +42,33 @@
 
     let trailingDays = 6 - (lastDayOfMonth % 7)
 
-    const toggleComplete = (i) => {
-        const element = document.querySelector(`#habit_${habitIndex} #day_${i}`)
+    const toggleComplete = (calendarIndex, habitIndex, month) => {
+        const element = document.querySelector(
+            `#habit_${habitIndex} #day_${calendarIndex}`
+        )
+
+        if (!habit.completedDates) habit.completedDates = []
         if (element.classList.contains('completed')) {
             element.classList.remove('completed')
+            habit.completedDates = habit.completedDates.filter(
+                (date) => date.day !== calendarIndex || date.month !== month
+            )
         } else {
             element.classList.add('completed')
+            habit.completedDates.push({ day: calendarIndex, month: month })
         }
+
+        habit = habit
+    }
+
+    const isDateComplete = (day) => {
+        if (!habit.completedDates) return false
+        const tempDate = habit.completedDates.filter(
+            (date) => date.day === day && date.month === currentMonth
+        )
+
+        console.log(JSON.stringify(habit.completedDates))
+        return tempDate.length > 0
     }
 </script>
 
@@ -67,9 +87,11 @@
             {/each}
             {#each { length: numberOfDays } as _, i}
                 <div
-                    on:click={() => toggleComplete(i + 1)}
+                    on:click={() =>
+                        toggleComplete(i + 1, habitIndex, currentMonth, habit)}
                     id="day_{i + 1}"
                     class="day"
+                    class:completed={isDateComplete(i + 1)}
                     class:current-day={currentDay === i + 1}
                 >
                     {i + 1}
