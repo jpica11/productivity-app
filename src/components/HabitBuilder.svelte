@@ -1,6 +1,6 @@
 <script>
     import { habitList } from '../store/habitList'
-    import Calendar from './Calendar.svelte'
+    import Calendar from './children/Calendar.svelte'
 
     let habit = {
         name: '',
@@ -58,7 +58,11 @@
                 </span>
 
                 Calendar:
-                <Calendar bind:habit habitIndex={index} />
+                <Calendar
+                    bind:habit
+                    habitIndex={index}
+                    calendarType={'HABIT'}
+                />
             </div>
         {/each}
     </div>

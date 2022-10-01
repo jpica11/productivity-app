@@ -8,7 +8,7 @@
     import MoodTracker from './components/MoodTracker.svelte'
     import SleepTracker from './components/SleepTracker.svelte'
     import ToDoList from './components/ToDoList.svelte'
-    import Calendar from './components/Calendar.svelte'
+    import Calendar from './components/Planner.svelte'
 
     const basepath = window.location.href.includes('github.io')
         ? '/productivity-app/'
@@ -28,7 +28,7 @@
         <a href="{basepath}#/mood">Mood</a>
         <a href="{basepath}#/sleep">Sleep</a>
         <a href="{basepath}#/todo">To-Do</a>
-        <a href="{basepath}#/calendar">Calendar</a>
+        <a href="{basepath}#/planner">Planner</a>
     </nav>
 </header>
 <Router

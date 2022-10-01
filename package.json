@@ -30,7 +30,9 @@
     "dependencies": {
         "@babel/preset-env": "^7.19.0",
         "@capacitor/android": "^4.1.0",
+        "@capacitor/camera": "^4.1.2",
         "@capacitor/ios": "^4.1.0",
+        "@capacitor/push-notifications": "^4.1.0",
         "sirv-cli": "^2.0.0",
         "svelte-spa-router": "^3.3.0"
     }

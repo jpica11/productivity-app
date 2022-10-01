@@ -1,6 +1,12 @@
 <script>
     export let habit
     export let habitIndex
+    export let calendarType
+
+    const CalendarTypes = {
+        HABIT: 'HABIT',
+        PLANNER: 'PLANNER',
+    }
 
     const days = ['S', 'M', 'T', 'W', 'Th', 'F', 'S']
 
@@ -42,7 +48,7 @@
 
     let trailingDays = 6 - (lastDayOfMonth % 7)
 
-    const toggleComplete = (calendarIndex, habitIndex, month) => {
+    const toggleHabitComplete = (calendarIndex, habitIndex, month) => {
         const element = document.querySelector(
             `#habit_${habitIndex} #day_${calendarIndex}`
         )
@@ -61,14 +67,17 @@
         habit = habit
     }
 
-    const isDateComplete = (day) => {
-        if (!habit.completedDates) return false
+    const isHabitDateComplete = (day) => {
+        if (!habit || !habit.completedDates) return false
         const tempDate = habit.completedDates.filter(
             (date) => date.day === day && date.month === currentMonth
         )
 
         return tempDate.length > 0
     }
+
+    const calendarFunction =
+        calendarType === CalendarTypes.HABIT ? toggleHabitComplete : undefined
 </script>
 
 <main>
@@ -87,10 +96,16 @@
             {#each { length: numberOfDays } as _, i}
                 <div
                     on:click={() =>
-                        toggleComplete(i + 1, habitIndex, currentMonth, habit)}
+                        calendarFunction(
+                            i + 1,
+                            habitIndex,
+                            currentMonth,
+                            habit
+                        )}
                     id="day_{i + 1}"
                     class="day"
-                    class:completed={isDateComplete(i + 1)}
+                    class:completed={CalendarTypes.HABIT === calendarType &&
+                        isHabitDateComplete(i + 1)}
                     class:current-day={currentDay === i + 1}
                 >
                     {i + 1}
