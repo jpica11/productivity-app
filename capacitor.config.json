@@ -2,5 +2,8 @@
     "appId": "com.jpd.productivity",
     "appName": "Health and Productivity",
     "webDir": "public",
-    "bundledWebRuntime": false
+    "bundledWebRuntime": false,
+    "server": {
+        "url": "http://localhost:8080/"
+    }
 }

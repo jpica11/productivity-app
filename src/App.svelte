@@ -17,7 +17,7 @@
 </script>
 
 <header>
-    <h1>Hello {name}!</h1>
+    <h1>Health and Productivity</h1>
 
     <nav>
         <a href="{basepath}#/todo">Home</a>

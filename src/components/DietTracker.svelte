@@ -1,16 +1,34 @@
 <script>
     import { getFactsByBarcode } from '../service/dietFetch'
     import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
+    import { Device } from '@capacitor/device'
     // TODO - remove default barcode
-    let barcode = '012000206856'
-    let foodData = ''
+    let barcode = '0711575102005'
+    let foodData = {}
+
     const getData = async () => {
         window.event.preventDefault()
-        foodData = await getFactsByBarcode(barcode)
+        const rawData = (await getFactsByBarcode(barcode)).product
         barcode = ''
+
+        foodData.name = rawData.product_name
+        foodData.servingSize = rawData.serving_size
+        foodData.nutrients = {
+            calories: rawData.nutriments['energy-kcal_serving'],
+            carbs: rawData.nutriments.carbohydrates_serving,
+            fat: rawData.nutriments.fat_serving,
+            protein: rawData.nutriments.proteins_serving,
+        }
     }
 
     const startScan = async () => {
+        if ((await Device.getInfo()).platform === 'web') {
+            stopScan()
+
+            alert(
+                'Barcode scan not available on web, type in 13 digit code and select get data'
+            )
+        }
         // Check camera permission
         // This is just a simple example, check out the better checks below
         await BarcodeScanner.checkPermission({ force: true })
@@ -27,6 +45,11 @@
             barcode = result.content
         }
     }
+
+    const stopScan = () => {
+        BarcodeScanner.showBackground()
+        BarcodeScanner.stopScan()
+    }
 </script>
 
 <main>
@@ -38,8 +61,8 @@
         <button on:click={startScan}>Scan for barcode</button>
     </form>
     <div>
-        {#if foodData && foodData.product}
-            <p>Data: {JSON.stringify(foodData.product.product_name)}</p>
+        {#if foodData}
+            <p>Data: {JSON.stringify(foodData)}</p>
         {:else}
             <p>Add barcode</p>
         {/if}
@@ -47,4 +70,8 @@
 </main>
 
 <style>
+    :global(body.scanner-active) {
+        --background: transparent;
+        --ion-background-color: transparent;
+    }
 </style>
