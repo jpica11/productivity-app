@@ -2372,7 +2372,7 @@ var app = (function () {
     const { console: console_1$2 } = globals;
     const file$9 = "src/components/DietTracker.svelte";
 
-    // (77:4) {:else}
+    // (79:4) {:else}
     function create_else_block(ctx) {
     	let span;
     	let t;
@@ -2393,7 +2393,7 @@ var app = (function () {
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(span, file$9, 77, 8, 2498);
+    			add_location(span, file$9, 79, 8, 2546);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, span, anchor);
@@ -2416,14 +2416,14 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(77:4) {:else}",
+    		source: "(79:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (68:4) {#if showForm}
+    // (70:4) {#if showForm}
     function create_if_block(ctx) {
     	let form;
     	let input;
@@ -2488,12 +2488,12 @@ var app = (function () {
     		h: function hydrate() {
     			attr_dev(input, "type", "text");
     			attr_dev(input, "placeholder", "Barcode");
-    			add_location(input, file$9, 69, 12, 2192);
-    			add_location(button0, file$9, 70, 12, 2269);
-    			add_location(button1, file$9, 71, 12, 2326);
-    			add_location(form, file$9, 68, 8, 2173);
-    			add_location(p, file$9, 74, 12, 2423);
-    			add_location(div, file$9, 73, 8, 2405);
+    			add_location(input, file$9, 71, 12, 2240);
+    			add_location(button0, file$9, 72, 12, 2317);
+    			add_location(button1, file$9, 73, 12, 2374);
+    			add_location(form, file$9, 70, 8, 2221);
+    			add_location(p, file$9, 76, 12, 2471);
+    			add_location(div, file$9, 75, 8, 2453);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, form, anchor);
@@ -2541,7 +2541,7 @@ var app = (function () {
     		block,
     		id: create_if_block.name,
     		type: "if",
-    		source: "(68:4) {#if showForm}",
+    		source: "(70:4) {#if showForm}",
     		ctx
     	});
 
@@ -2573,7 +2573,7 @@ var app = (function () {
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(main, file$9, 66, 0, 2139);
+    			add_location(main, file$9, 68, 0, 2187);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, main, anchor);
@@ -2659,6 +2659,8 @@ var app = (function () {
     		if (result.hasContent) {
     			console.log(result.content); // log the raw scanned content
     			$$invalidate(0, barcode = result.content);
+    			closeCamera();
+    			getData();
     		}
     	};
 

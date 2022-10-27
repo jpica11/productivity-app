@@ -43,6 +43,8 @@
         if (result.hasContent) {
             console.log(result.content) // log the raw scanned content
             barcode = result.content
+            closeCamera()
+            getData()
         }
     }
 
