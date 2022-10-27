@@ -4,6 +4,6 @@
     "webDir": "public",
     "bundledWebRuntime": false,
     "server": {
-        "url": "http://localhost:8080/"
+        "url": "https://jpica11.github.io/productivity-app/"
     }
 }
