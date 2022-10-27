@@ -2372,34 +2372,43 @@ var app = (function () {
     const { console: console_1$2 } = globals;
     const file$9 = "src/components/DietTracker.svelte";
 
-    // (66:8) {:else}
+    // (77:4) {:else}
     function create_else_block(ctx) {
-    	let p;
+    	let span;
     	let t;
+    	let mounted;
+    	let dispose;
 
     	const block = {
     		c: function create() {
-    			p = element("p");
-    			t = text("Add barcode");
+    			span = element("span");
+    			t = text("❌");
     			this.h();
     		},
     		l: function claim(nodes) {
-    			p = claim_element(nodes, "P", {});
-    			var p_nodes = children(p);
-    			t = claim_text(p_nodes, "Add barcode");
-    			p_nodes.forEach(detach_dev);
+    			span = claim_element(nodes, "SPAN", {});
+    			var span_nodes = children(span);
+    			t = claim_text(span_nodes, "❌");
+    			span_nodes.forEach(detach_dev);
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(p, file$9, 66, 12, 2205);
+    			add_location(span, file$9, 77, 8, 2498);
     		},
     		m: function mount(target, anchor) {
-    			insert_hydration_dev(target, p, anchor);
-    			append_hydration_dev(p, t);
+    			insert_hydration_dev(target, span, anchor);
+    			append_hydration_dev(span, t);
+
+    			if (!mounted) {
+    				dispose = listen_dev(span, "click", /*closeCamera*/ ctx[5], false, false, false);
+    				mounted = true;
+    			}
     		},
     		p: noop,
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(p);
+    			if (detaching) detach_dev(span);
+    			mounted = false;
+    			dispose();
     		}
     	};
 
@@ -2407,48 +2416,124 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(66:8) {:else}",
+    		source: "(77:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (64:8) {#if foodData}
+    // (68:4) {#if showForm}
     function create_if_block(ctx) {
-    	let p;
+    	let form;
+    	let input;
     	let t0;
-    	let t1_value = JSON.stringify(/*foodData*/ ctx[1]) + "";
+    	let button0;
     	let t1;
+    	let t2;
+    	let button1;
+    	let t3;
+    	let t4;
+    	let div;
+    	let p;
+    	let t5;
+    	let t6_value = JSON.stringify(/*foodData*/ ctx[1]) + "";
+    	let t6;
+    	let mounted;
+    	let dispose;
 
     	const block = {
     		c: function create() {
+    			form = element("form");
+    			input = element("input");
+    			t0 = space();
+    			button0 = element("button");
+    			t1 = text("Get Data");
+    			t2 = space();
+    			button1 = element("button");
+    			t3 = text("Scan for barcode");
+    			t4 = space();
+    			div = element("div");
     			p = element("p");
-    			t0 = text("Data: ");
-    			t1 = text(t1_value);
+    			t5 = text("Data: ");
+    			t6 = text(t6_value);
     			this.h();
     		},
     		l: function claim(nodes) {
-    			p = claim_element(nodes, "P", {});
+    			form = claim_element(nodes, "FORM", {});
+    			var form_nodes = children(form);
+    			input = claim_element(form_nodes, "INPUT", { type: true, placeholder: true });
+    			t0 = claim_space(form_nodes);
+    			button0 = claim_element(form_nodes, "BUTTON", {});
+    			var button0_nodes = children(button0);
+    			t1 = claim_text(button0_nodes, "Get Data");
+    			button0_nodes.forEach(detach_dev);
+    			t2 = claim_space(form_nodes);
+    			button1 = claim_element(form_nodes, "BUTTON", {});
+    			var button1_nodes = children(button1);
+    			t3 = claim_text(button1_nodes, "Scan for barcode");
+    			button1_nodes.forEach(detach_dev);
+    			form_nodes.forEach(detach_dev);
+    			t4 = claim_space(nodes);
+    			div = claim_element(nodes, "DIV", {});
+    			var div_nodes = children(div);
+    			p = claim_element(div_nodes, "P", {});
     			var p_nodes = children(p);
-    			t0 = claim_text(p_nodes, "Data: ");
-    			t1 = claim_text(p_nodes, t1_value);
+    			t5 = claim_text(p_nodes, "Data: ");
+    			t6 = claim_text(p_nodes, t6_value);
     			p_nodes.forEach(detach_dev);
+    			div_nodes.forEach(detach_dev);
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(p, file$9, 64, 12, 2137);
+    			attr_dev(input, "type", "text");
+    			attr_dev(input, "placeholder", "Barcode");
+    			add_location(input, file$9, 69, 12, 2192);
+    			add_location(button0, file$9, 70, 12, 2269);
+    			add_location(button1, file$9, 71, 12, 2326);
+    			add_location(form, file$9, 68, 8, 2173);
+    			add_location(p, file$9, 74, 12, 2423);
+    			add_location(div, file$9, 73, 8, 2405);
     		},
     		m: function mount(target, anchor) {
-    			insert_hydration_dev(target, p, anchor);
-    			append_hydration_dev(p, t0);
-    			append_hydration_dev(p, t1);
+    			insert_hydration_dev(target, form, anchor);
+    			append_hydration_dev(form, input);
+    			set_input_value(input, /*barcode*/ ctx[0]);
+    			append_hydration_dev(form, t0);
+    			append_hydration_dev(form, button0);
+    			append_hydration_dev(button0, t1);
+    			append_hydration_dev(form, t2);
+    			append_hydration_dev(form, button1);
+    			append_hydration_dev(button1, t3);
+    			insert_hydration_dev(target, t4, anchor);
+    			insert_hydration_dev(target, div, anchor);
+    			append_hydration_dev(div, p);
+    			append_hydration_dev(p, t5);
+    			append_hydration_dev(p, t6);
+
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(input, "input", /*input_input_handler*/ ctx[6]),
+    					listen_dev(button0, "click", /*getData*/ ctx[3], false, false, false),
+    					listen_dev(button1, "click", /*startScan*/ ctx[4], false, false, false)
+    				];
+
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, dirty) {
-    			if (dirty & /*foodData*/ 2 && t1_value !== (t1_value = JSON.stringify(/*foodData*/ ctx[1]) + "")) set_data_dev(t1, t1_value);
+    			if (dirty & /*barcode*/ 1 && input.value !== /*barcode*/ ctx[0]) {
+    				set_input_value(input, /*barcode*/ ctx[0]);
+    			}
+
+    			if (dirty & /*foodData*/ 2 && t6_value !== (t6_value = JSON.stringify(/*foodData*/ ctx[1]) + "")) set_data_dev(t6, t6_value);
     		},
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(p);
+    			if (detaching) detach_dev(form);
+    			if (detaching) detach_dev(t4);
+    			if (detaching) detach_dev(div);
+    			mounted = false;
+    			run_all(dispose);
     		}
     	};
 
@@ -2456,7 +2541,7 @@ var app = (function () {
     		block,
     		id: create_if_block.name,
     		type: "if",
-    		source: "(64:8) {#if foodData}",
+    		source: "(68:4) {#if showForm}",
     		ctx
     	});
 
@@ -2465,24 +2550,9 @@ var app = (function () {
 
     function create_fragment$9(ctx) {
     	let main;
-    	let h1;
-    	let t0;
-    	let t1;
-    	let form;
-    	let input;
-    	let t2;
-    	let button0;
-    	let t3;
-    	let t4;
-    	let button1;
-    	let t5;
-    	let t6;
-    	let div;
-    	let mounted;
-    	let dispose;
 
     	function select_block_type(ctx, dirty) {
-    		if (/*foodData*/ ctx[1]) return create_if_block;
+    		if (/*showForm*/ ctx[2]) return create_if_block;
     		return create_else_block;
     	}
 
@@ -2492,96 +2562,24 @@ var app = (function () {
     	const block = {
     		c: function create() {
     			main = element("main");
-    			h1 = element("h1");
-    			t0 = text("Diet Tracker Component");
-    			t1 = space();
-    			form = element("form");
-    			input = element("input");
-    			t2 = space();
-    			button0 = element("button");
-    			t3 = text("Get Data");
-    			t4 = space();
-    			button1 = element("button");
-    			t5 = text("Scan for barcode");
-    			t6 = space();
-    			div = element("div");
     			if_block.c();
     			this.h();
     		},
     		l: function claim(nodes) {
     			main = claim_element(nodes, "MAIN", {});
     			var main_nodes = children(main);
-    			h1 = claim_element(main_nodes, "H1", {});
-    			var h1_nodes = children(h1);
-    			t0 = claim_text(h1_nodes, "Diet Tracker Component");
-    			h1_nodes.forEach(detach_dev);
-    			t1 = claim_space(main_nodes);
-    			form = claim_element(main_nodes, "FORM", {});
-    			var form_nodes = children(form);
-    			input = claim_element(form_nodes, "INPUT", { type: true, placeholder: true });
-    			t2 = claim_space(form_nodes);
-    			button0 = claim_element(form_nodes, "BUTTON", {});
-    			var button0_nodes = children(button0);
-    			t3 = claim_text(button0_nodes, "Get Data");
-    			button0_nodes.forEach(detach_dev);
-    			t4 = claim_space(form_nodes);
-    			button1 = claim_element(form_nodes, "BUTTON", {});
-    			var button1_nodes = children(button1);
-    			t5 = claim_text(button1_nodes, "Scan for barcode");
-    			button1_nodes.forEach(detach_dev);
-    			form_nodes.forEach(detach_dev);
-    			t6 = claim_space(main_nodes);
-    			div = claim_element(main_nodes, "DIV", {});
-    			var div_nodes = children(div);
-    			if_block.l(div_nodes);
-    			div_nodes.forEach(detach_dev);
+    			if_block.l(main_nodes);
     			main_nodes.forEach(detach_dev);
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(h1, file$9, 55, 4, 1847);
-    			attr_dev(input, "type", "text");
-    			attr_dev(input, "placeholder", "Barcode");
-    			add_location(input, file$9, 58, 8, 1899);
-    			add_location(button0, file$9, 59, 8, 1972);
-    			add_location(button1, file$9, 60, 8, 2025);
-    			add_location(form, file$9, 57, 4, 1884);
-    			add_location(div, file$9, 62, 4, 2096);
-    			add_location(main, file$9, 54, 0, 1836);
+    			add_location(main, file$9, 66, 0, 2139);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, main, anchor);
-    			append_hydration_dev(main, h1);
-    			append_hydration_dev(h1, t0);
-    			append_hydration_dev(main, t1);
-    			append_hydration_dev(main, form);
-    			append_hydration_dev(form, input);
-    			set_input_value(input, /*barcode*/ ctx[0]);
-    			append_hydration_dev(form, t2);
-    			append_hydration_dev(form, button0);
-    			append_hydration_dev(button0, t3);
-    			append_hydration_dev(form, t4);
-    			append_hydration_dev(form, button1);
-    			append_hydration_dev(button1, t5);
-    			append_hydration_dev(main, t6);
-    			append_hydration_dev(main, div);
-    			if_block.m(div, null);
-
-    			if (!mounted) {
-    				dispose = [
-    					listen_dev(input, "input", /*input_input_handler*/ ctx[4]),
-    					listen_dev(button0, "click", /*getData*/ ctx[2], false, false, false),
-    					listen_dev(button1, "click", /*startScan*/ ctx[3], false, false, false)
-    				];
-
-    				mounted = true;
-    			}
+    			if_block.m(main, null);
     		},
     		p: function update(ctx, [dirty]) {
-    			if (dirty & /*barcode*/ 1 && input.value !== /*barcode*/ ctx[0]) {
-    				set_input_value(input, /*barcode*/ ctx[0]);
-    			}
-
     			if (current_block_type === (current_block_type = select_block_type(ctx)) && if_block) {
     				if_block.p(ctx, dirty);
     			} else {
@@ -2590,7 +2588,7 @@ var app = (function () {
 
     				if (if_block) {
     					if_block.c();
-    					if_block.m(div, null);
+    					if_block.m(main, null);
     				}
     			}
     		},
@@ -2599,8 +2597,6 @@ var app = (function () {
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(main);
     			if_block.d();
-    			mounted = false;
-    			run_all(dispose);
     		}
     	};
 
@@ -2620,6 +2616,7 @@ var app = (function () {
     	validate_slots('DietTracker', slots, []);
     	let barcode = '0711575102005';
     	let foodData = {};
+    	let showForm = true;
 
     	const getData = async () => {
     		window.event.preventDefault();
@@ -2642,13 +2639,15 @@ var app = (function () {
 
     	const startScan = async () => {
     		if ((await Device.getInfo()).platform === 'web') {
-    			stopScan();
-    			alert('Barcode scan not available on web, type in 13 digit code and select get data');
+    			showCamera();
+    			return;
     		}
 
     		// Check camera permission
     		// This is just a simple example, check out the better checks below
     		await BarcodeScanner.checkPermission({ force: true });
+
+    		showCamera();
 
     		// make background of WebView transparent
     		// note: if you are using ionic this might not be enough, check below
@@ -2668,6 +2667,18 @@ var app = (function () {
     		BarcodeScanner.stopScan();
     	};
 
+    	const showCamera = () => {
+    		console.log(document.getElementsByTagName('header').length);
+    		document.getElementsByTagName('header')[0].style.visibility = 'hidden';
+    		$$invalidate(2, showForm = false);
+    	};
+
+    	const closeCamera = () => {
+    		document.getElementsByTagName('header')[0].style.visibility = '';
+    		$$invalidate(2, showForm = true);
+    		stopScan();
+    	};
+
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
@@ -2685,21 +2696,33 @@ var app = (function () {
     		Device,
     		barcode,
     		foodData,
+    		showForm,
     		getData,
     		startScan,
-    		stopScan
+    		stopScan,
+    		showCamera,
+    		closeCamera
     	});
 
     	$$self.$inject_state = $$props => {
     		if ('barcode' in $$props) $$invalidate(0, barcode = $$props.barcode);
     		if ('foodData' in $$props) $$invalidate(1, foodData = $$props.foodData);
+    		if ('showForm' in $$props) $$invalidate(2, showForm = $$props.showForm);
     	};
 
     	if ($$props && "$$inject" in $$props) {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [barcode, foodData, getData, startScan, input_input_handler];
+    	return [
+    		barcode,
+    		foodData,
+    		showForm,
+    		getData,
+    		startScan,
+    		closeCamera,
+    		input_input_handler
+    	];
     }
 
     class DietTracker extends SvelteComponentDev {
