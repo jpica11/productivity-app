@@ -2372,41 +2372,55 @@ var app = (function () {
     const { console: console_1$2 } = globals;
     const file$9 = "src/components/DietTracker.svelte";
 
-    // (79:4) {:else}
+    // (88:4) {:else}
     function create_else_block(ctx) {
-    	let span;
-    	let t;
+    	let div;
+    	let t0;
+    	let button;
+    	let t1;
     	let mounted;
     	let dispose;
 
     	const block = {
     		c: function create() {
-    			span = element("span");
-    			t = text("❌");
+    			div = element("div");
+    			t0 = space();
+    			button = element("button");
+    			t1 = text("Stop scanning");
     			this.h();
     		},
     		l: function claim(nodes) {
-    			span = claim_element(nodes, "SPAN", {});
-    			var span_nodes = children(span);
-    			t = claim_text(span_nodes, "❌");
-    			span_nodes.forEach(detach_dev);
+    			div = claim_element(nodes, "DIV", { class: true });
+    			children(div).forEach(detach_dev);
+    			t0 = claim_space(nodes);
+    			button = claim_element(nodes, "BUTTON", { class: true });
+    			var button_nodes = children(button);
+    			t1 = claim_text(button_nodes, "Stop scanning");
+    			button_nodes.forEach(detach_dev);
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(span, file$9, 79, 8, 2546);
+    			attr_dev(div, "class", "scan-box svelte-cu118e");
+    			add_location(div, file$9, 88, 8, 2826);
+    			attr_dev(button, "class", "close-button svelte-cu118e");
+    			add_location(button, file$9, 89, 8, 2859);
     		},
     		m: function mount(target, anchor) {
-    			insert_hydration_dev(target, span, anchor);
-    			append_hydration_dev(span, t);
+    			insert_hydration_dev(target, div, anchor);
+    			insert_hydration_dev(target, t0, anchor);
+    			insert_hydration_dev(target, button, anchor);
+    			append_hydration_dev(button, t1);
 
     			if (!mounted) {
-    				dispose = listen_dev(span, "click", /*closeCamera*/ ctx[5], false, false, false);
+    				dispose = listen_dev(button, "click", /*closeCamera*/ ctx[5], false, false, false);
     				mounted = true;
     			}
     		},
     		p: noop,
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(span);
+    			if (detaching) detach_dev(div);
+    			if (detaching) detach_dev(t0);
+    			if (detaching) detach_dev(button);
     			mounted = false;
     			dispose();
     		}
@@ -2416,14 +2430,14 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(79:4) {:else}",
+    		source: "(88:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (70:4) {#if showForm}
+    // (79:4) {#if showForm}
     function create_if_block(ctx) {
     	let form;
     	let input;
@@ -2488,12 +2502,12 @@ var app = (function () {
     		h: function hydrate() {
     			attr_dev(input, "type", "text");
     			attr_dev(input, "placeholder", "Barcode");
-    			add_location(input, file$9, 71, 12, 2240);
-    			add_location(button0, file$9, 72, 12, 2317);
-    			add_location(button1, file$9, 73, 12, 2374);
-    			add_location(form, file$9, 70, 8, 2221);
-    			add_location(p, file$9, 76, 12, 2471);
-    			add_location(div, file$9, 75, 8, 2453);
+    			add_location(input, file$9, 80, 12, 2520);
+    			add_location(button0, file$9, 81, 12, 2597);
+    			add_location(button1, file$9, 82, 12, 2654);
+    			add_location(form, file$9, 79, 8, 2501);
+    			add_location(p, file$9, 85, 12, 2751);
+    			add_location(div, file$9, 84, 8, 2733);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, form, anchor);
@@ -2541,7 +2555,7 @@ var app = (function () {
     		block,
     		id: create_if_block.name,
     		type: "if",
-    		source: "(70:4) {#if showForm}",
+    		source: "(79:4) {#if showForm}",
     		ctx
     	});
 
@@ -2573,7 +2587,7 @@ var app = (function () {
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(main, file$9, 68, 0, 2187);
+    			add_location(main, file$9, 77, 0, 2467);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, main, anchor);
@@ -2618,6 +2632,9 @@ var app = (function () {
     	let foodData = {};
     	let showForm = true;
 
+    	// Prepares scanner to speed up load times
+    	BarcodeScanner.prepare();
+
     	const getData = async () => {
     		window.event.preventDefault();
     		const rawData = (await getFactsByBarcode(barcode)).product;
@@ -2639,7 +2656,9 @@ var app = (function () {
 
     	const startScan = async () => {
     		if ((await Device.getInfo()).platform === 'web') {
+    			// TODO - remove show camera call and add error message for web instead
     			showCamera();
+
     			return;
     		}
 
@@ -2647,32 +2666,29 @@ var app = (function () {
     		// This is just a simple example, check out the better checks below
     		await BarcodeScanner.checkPermission({ force: true });
 
-    		showCamera();
-
-    		// make background of WebView transparent
-    		// note: if you are using ionic this might not be enough, check below
-    		BarcodeScanner.hideBackground();
-
+    		await showCamera();
+    		console.log('Camera overlay showing, about to scan');
     		const result = await BarcodeScanner.startScan(); // start scanning and wait for a result
 
     		// if the result has content
     		if (result.hasContent) {
     			console.log(result.content); // log the raw scanned content
     			$$invalidate(0, barcode = result.content);
-    			closeCamera();
+    			await closeCamera();
     			getData();
     		}
     	};
 
-    	const stopScan = () => {
-    		BarcodeScanner.showBackground();
+    	const stopScan = async () => {
+    		await BarcodeScanner.showBackground();
     		BarcodeScanner.stopScan();
     	};
 
-    	const showCamera = () => {
-    		console.log(document.getElementsByTagName('header').length);
-    		document.getElementsByTagName('header')[0].style.visibility = 'hidden';
+    	const showCamera = async () => {
     		$$invalidate(2, showForm = false);
+    		console.log('🚀 ~ file: DietTracker.svelte ~ line 62 ~ showCamera ~ showForm', showForm);
+    		await BarcodeScanner.hideBackground();
+    		document.getElementsByTagName('header')[0].style.visibility = 'hidden';
     	};
 
     	const closeCamera = () => {
@@ -2681,6 +2697,7 @@ var app = (function () {
     		stopScan();
     	};
 
+    	onDestroy(() => BarcodeScanner.stopScan());
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
@@ -2696,6 +2713,7 @@ var app = (function () {
     		getFactsByBarcode,
     		BarcodeScanner,
     		Device,
+    		onDestroy,
     		barcode,
     		foodData,
     		showForm,
