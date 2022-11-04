@@ -10,6 +10,9 @@ var app = (function () {
             tar[k] = src[k];
         return tar;
     }
+    function is_promise(value) {
+        return value && typeof value === 'object' && typeof value.then === 'function';
+    }
     function add_location(element, file, line, column, char) {
         element.__svelte_meta = {
             loc: { file, line, column, char }
@@ -157,7 +160,7 @@ var app = (function () {
     function append_hydration(target, node) {
         if (is_hydrating) {
             init_hydrate(target);
-            if ((target.actual_end_child === undefined) || ((target.actual_end_child !== null) && (target.actual_end_child.parentElement !== target))) {
+            if ((target.actual_end_child === undefined) || ((target.actual_end_child !== null) && (target.actual_end_child.parentNode !== target))) {
                 target.actual_end_child = target.firstChild;
             }
             // Skip nodes of undefined ordering
@@ -343,12 +346,37 @@ var app = (function () {
             throw new Error('Function called outside component initialization');
         return current_component;
     }
+    /**
+     * Schedules a callback to run immediately after the component has been updated.
+     *
+     * The first time the callback runs will be after the initial `onMount`
+     */
     function afterUpdate(fn) {
         get_current_component().$$.after_update.push(fn);
     }
+    /**
+     * Schedules a callback to run immediately before the component is unmounted.
+     *
+     * Out of `onMount`, `beforeUpdate`, `afterUpdate` and `onDestroy`, this is the
+     * only one that runs inside a server-side component.
+     *
+     * https://svelte.dev/docs#run-time-svelte-ondestroy
+     */
     function onDestroy(fn) {
         get_current_component().$$.on_destroy.push(fn);
     }
+    /**
+     * Creates an event dispatcher that can be used to dispatch [component events](/docs#template-syntax-component-directives-on-eventname).
+     * Event dispatchers are functions that can take two arguments: `name` and `detail`.
+     *
+     * Component events created with `createEventDispatcher` create a
+     * [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent).
+     * These events do not [bubble](https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Building_blocks/Events#Event_bubbling_and_capture).
+     * The `detail` argument corresponds to the [CustomEvent.detail](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent/detail)
+     * property and can contain any type of data.
+     *
+     * https://svelte.dev/docs#run-time-svelte-createeventdispatcher
+     */
     function createEventDispatcher() {
         const component = get_current_component();
         return (type, detail, { cancelable = false } = {}) => {
@@ -505,6 +533,88 @@ var app = (function () {
         }
     }
 
+    function handle_promise(promise, info) {
+        const token = info.token = {};
+        function update(type, index, key, value) {
+            if (info.token !== token)
+                return;
+            info.resolved = value;
+            let child_ctx = info.ctx;
+            if (key !== undefined) {
+                child_ctx = child_ctx.slice();
+                child_ctx[key] = value;
+            }
+            const block = type && (info.current = type)(child_ctx);
+            let needs_flush = false;
+            if (info.block) {
+                if (info.blocks) {
+                    info.blocks.forEach((block, i) => {
+                        if (i !== index && block) {
+                            group_outros();
+                            transition_out(block, 1, 1, () => {
+                                if (info.blocks[i] === block) {
+                                    info.blocks[i] = null;
+                                }
+                            });
+                            check_outros();
+                        }
+                    });
+                }
+                else {
+                    info.block.d(1);
+                }
+                block.c();
+                transition_in(block, 1);
+                block.m(info.mount(), info.anchor);
+                needs_flush = true;
+            }
+            info.block = block;
+            if (info.blocks)
+                info.blocks[index] = block;
+            if (needs_flush) {
+                flush();
+            }
+        }
+        if (is_promise(promise)) {
+            const current_component = get_current_component();
+            promise.then(value => {
+                set_current_component(current_component);
+                update(info.then, 1, info.value, value);
+                set_current_component(null);
+            }, error => {
+                set_current_component(current_component);
+                update(info.catch, 2, info.error, error);
+                set_current_component(null);
+                if (!info.hasCatch) {
+                    throw error;
+                }
+            });
+            // if we previously had a then/catch block, destroy it
+            if (info.current !== info.pending) {
+                update(info.pending, 0);
+                return true;
+            }
+        }
+        else {
+            if (info.current !== info.then) {
+                update(info.then, 1, info.value, promise);
+                return true;
+            }
+            info.resolved = promise;
+        }
+    }
+    function update_await_block_branch(info, ctx, dirty) {
+        const child_ctx = ctx.slice();
+        const { resolved } = info;
+        if (info.current === info.then) {
+            child_ctx[info.value] = resolved;
+        }
+        if (info.current === info.catch) {
+            child_ctx[info.error] = resolved;
+        }
+        info.block.p(child_ctx, dirty);
+    }
+
     const globals = (typeof window !== 'undefined'
         ? window
         : typeof globalThis !== 'undefined'
@@ -562,14 +672,17 @@ var app = (function () {
         block && block.l(parent_nodes);
     }
     function mount_component(component, target, anchor, customElement) {
-        const { fragment, on_mount, on_destroy, after_update } = component.$$;
+        const { fragment, after_update } = component.$$;
         fragment && fragment.m(target, anchor);
         if (!customElement) {
             // onMount happens before the initial afterUpdate
             add_render_callback(() => {
-                const new_on_destroy = on_mount.map(run).filter(is_function);
-                if (on_destroy) {
-                    on_destroy.push(...new_on_destroy);
+                const new_on_destroy = component.$$.on_mount.map(run).filter(is_function);
+                // if the component was destroyed immediately
+                // it will update the `$$.on_destroy` reference to `null`.
+                // the destructured on_destroy may still reference to the old array
+                if (component.$$.on_destroy) {
+                    component.$$.on_destroy.push(...new_on_destroy);
                 }
                 else {
                     // Edge case - component was destroyed immediately,
@@ -605,7 +718,7 @@ var app = (function () {
         set_current_component(component);
         const $$ = component.$$ = {
             fragment: null,
-            ctx: null,
+            ctx: [],
             // state
             props,
             update: noop,
@@ -672,6 +785,9 @@ var app = (function () {
             this.$destroy = noop;
         }
         $on(type, callback) {
+            if (!is_function(callback)) {
+                return noop;
+            }
             const callbacks = (this.$$.callbacks[type] || (this.$$.callbacks[type] = []));
             callbacks.push(callback);
             return () => {
@@ -690,7 +806,7 @@ var app = (function () {
     }
 
     function dispatch_dev(type, detail) {
-        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.49.0' }, detail), { bubbles: true }));
+        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.52.0' }, detail), { bubbles: true }));
     }
     function append_hydration_dev(target, node) {
         dispatch_dev('SvelteDOMInsert', { target, node });
@@ -2300,6 +2416,253 @@ var app = (function () {
             handle.registered = false;
         }
     }
+    /******** END WEB VIEW PLUGIN ********/
+    /******** COOKIES PLUGIN ********/
+    /**
+     * Safely web encode a string value (inspired by js-cookie)
+     * @param str The string value to encode
+     */
+    const encode = (str) => encodeURIComponent(str)
+        .replace(/%(2[346B]|5E|60|7C)/g, decodeURIComponent)
+        .replace(/[()]/g, escape);
+    class CapacitorCookiesPluginWeb extends WebPlugin {
+        async setCookie(options) {
+            try {
+                // Safely Encoded Key/Value
+                const encodedKey = encode(options.key);
+                const encodedValue = encode(options.value);
+                // Clean & sanitize options
+                const expires = `; expires=${(options.expires || '').replace('expires=', '')}`; // Default is "; expires="
+                const path = (options.path || '/').replace('path=', ''); // Default is "path=/"
+                document.cookie = `${encodedKey}=${encodedValue || ''}${expires}; path=${path}`;
+            }
+            catch (error) {
+                return Promise.reject(error);
+            }
+        }
+        async deleteCookie(options) {
+            try {
+                document.cookie = `${options.key}=; Max-Age=0`;
+            }
+            catch (error) {
+                return Promise.reject(error);
+            }
+        }
+        async clearCookies() {
+            try {
+                const cookies = document.cookie.split(';') || [];
+                for (const cookie of cookies) {
+                    document.cookie = cookie
+                        .replace(/^ +/, '')
+                        .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
+                }
+            }
+            catch (error) {
+                return Promise.reject(error);
+            }
+        }
+        async clearAllCookies() {
+            try {
+                await this.clearCookies();
+            }
+            catch (error) {
+                return Promise.reject(error);
+            }
+        }
+    }
+    registerPlugin('CapacitorCookies', {
+        web: () => new CapacitorCookiesPluginWeb(),
+    });
+    // UTILITY FUNCTIONS
+    /**
+     * Read in a Blob value and return it as a base64 string
+     * @param blob The blob value to convert to a base64 string
+     */
+    const readBlobAsBase64 = async (blob) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64String = reader.result;
+            // remove prefix "data:application/pdf;base64,"
+            resolve(base64String.indexOf(',') >= 0
+                ? base64String.split(',')[1]
+                : base64String);
+        };
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(blob);
+    });
+    /**
+     * Normalize an HttpHeaders map by lowercasing all of the values
+     * @param headers The HttpHeaders object to normalize
+     */
+    const normalizeHttpHeaders = (headers = {}) => {
+        const originalKeys = Object.keys(headers);
+        const loweredKeys = Object.keys(headers).map(k => k.toLocaleLowerCase());
+        const normalized = loweredKeys.reduce((acc, key, index) => {
+            acc[key] = headers[originalKeys[index]];
+            return acc;
+        }, {});
+        return normalized;
+    };
+    /**
+     * Builds a string of url parameters that
+     * @param params A map of url parameters
+     * @param shouldEncode true if you should encodeURIComponent() the values (true by default)
+     */
+    const buildUrlParams = (params, shouldEncode = true) => {
+        if (!params)
+            return null;
+        const output = Object.entries(params).reduce((accumulator, entry) => {
+            const [key, value] = entry;
+            let encodedValue;
+            let item;
+            if (Array.isArray(value)) {
+                item = '';
+                value.forEach(str => {
+                    encodedValue = shouldEncode ? encodeURIComponent(str) : str;
+                    item += `${key}=${encodedValue}&`;
+                });
+                // last character will always be "&" so slice it off
+                item.slice(0, -1);
+            }
+            else {
+                encodedValue = shouldEncode ? encodeURIComponent(value) : value;
+                item = `${key}=${encodedValue}`;
+            }
+            return `${accumulator}&${item}`;
+        }, '');
+        // Remove initial "&" from the reduce
+        return output.substr(1);
+    };
+    /**
+     * Build the RequestInit object based on the options passed into the initial request
+     * @param options The Http plugin options
+     * @param extra Any extra RequestInit values
+     */
+    const buildRequestInit = (options, extra = {}) => {
+        const output = Object.assign({ method: options.method || 'GET', headers: options.headers }, extra);
+        // Get the content-type
+        const headers = normalizeHttpHeaders(options.headers);
+        const type = headers['content-type'] || '';
+        // If body is already a string, then pass it through as-is.
+        if (typeof options.data === 'string') {
+            output.body = options.data;
+        }
+        // Build request initializers based off of content-type
+        else if (type.includes('application/x-www-form-urlencoded')) {
+            const params = new URLSearchParams();
+            for (const [key, value] of Object.entries(options.data || {})) {
+                params.set(key, value);
+            }
+            output.body = params.toString();
+        }
+        else if (type.includes('multipart/form-data')) {
+            const form = new FormData();
+            if (options.data instanceof FormData) {
+                options.data.forEach((value, key) => {
+                    form.append(key, value);
+                });
+            }
+            else {
+                for (const key of Object.keys(options.data)) {
+                    form.append(key, options.data[key]);
+                }
+            }
+            output.body = form;
+            const headers = new Headers(output.headers);
+            headers.delete('content-type'); // content-type will be set by `window.fetch` to includy boundary
+            output.headers = headers;
+        }
+        else if (type.includes('application/json') ||
+            typeof options.data === 'object') {
+            output.body = JSON.stringify(options.data);
+        }
+        return output;
+    };
+    // WEB IMPLEMENTATION
+    class CapacitorHttpPluginWeb extends WebPlugin {
+        /**
+         * Perform an Http request given a set of options
+         * @param options Options to build the HTTP request
+         */
+        async request(options) {
+            const requestInit = buildRequestInit(options, options.webFetchExtra);
+            const urlParams = buildUrlParams(options.params, options.shouldEncodeUrlParams);
+            const url = urlParams ? `${options.url}?${urlParams}` : options.url;
+            const response = await fetch(url, requestInit);
+            const contentType = response.headers.get('content-type') || '';
+            // Default to 'text' responseType so no parsing happens
+            let { responseType = 'text' } = response.ok ? options : {};
+            // If the response content-type is json, force the response to be json
+            if (contentType.includes('application/json')) {
+                responseType = 'json';
+            }
+            let data;
+            let blob;
+            switch (responseType) {
+                case 'arraybuffer':
+                case 'blob':
+                    blob = await response.blob();
+                    data = await readBlobAsBase64(blob);
+                    break;
+                case 'json':
+                    data = await response.json();
+                    break;
+                case 'document':
+                case 'text':
+                default:
+                    data = await response.text();
+            }
+            // Convert fetch headers to Capacitor HttpHeaders
+            const headers = {};
+            response.headers.forEach((value, key) => {
+                headers[key] = value;
+            });
+            return {
+                data,
+                headers,
+                status: response.status,
+                url: response.url,
+            };
+        }
+        /**
+         * Perform an Http GET request given a set of options
+         * @param options Options to build the HTTP request
+         */
+        async get(options) {
+            return this.request(Object.assign(Object.assign({}, options), { method: 'GET' }));
+        }
+        /**
+         * Perform an Http POST request given a set of options
+         * @param options Options to build the HTTP request
+         */
+        async post(options) {
+            return this.request(Object.assign(Object.assign({}, options), { method: 'POST' }));
+        }
+        /**
+         * Perform an Http PUT request given a set of options
+         * @param options Options to build the HTTP request
+         */
+        async put(options) {
+            return this.request(Object.assign(Object.assign({}, options), { method: 'PUT' }));
+        }
+        /**
+         * Perform an Http PATCH request given a set of options
+         * @param options Options to build the HTTP request
+         */
+        async patch(options) {
+            return this.request(Object.assign(Object.assign({}, options), { method: 'PATCH' }));
+        }
+        /**
+         * Perform an Http DELETE request given a set of options
+         * @param options Options to build the HTTP request
+         */
+        async delete(options) {
+            return this.request(Object.assign(Object.assign({}, options), { method: 'DELETE' }));
+        }
+    }
+    registerPlugin('CapacitorHttp', {
+        web: () => new CapacitorHttpPluginWeb(),
+    });
 
     var SupportedFormat;
     (function (SupportedFormat) {
@@ -2367,13 +2730,35 @@ var app = (function () {
         web: () => Promise.resolve().then(function () { return web; }).then(m => new m.DeviceWeb()),
     });
 
+    const DIET_DATA = 'DIET_DATA';
+
+    const getDataFromStorage = () => {
+        const storedData = JSON.parse(localStorage.getItem(DIET_DATA));
+        return storedData &&
+            storedData.currentDate === new Date().toLocaleDateString()
+            ? storedData
+            : {
+                  currentCalories: 0,
+                  totalProtein: 0,
+                  totalCarbs: 0,
+                  totalFat: 0,
+                  currentDate: new Date().toLocaleDateString(),
+              }
+    };
+
+    const dailyDietData = writable(getDataFromStorage());
+
+    dailyDietData.subscribe((value) => {
+        localStorage.setItem(DIET_DATA, JSON.stringify(value));
+    });
+
     /* src/components/DietTracker.svelte generated by Svelte v3.49.0 */
 
     const { console: console_1$2 } = globals;
     const file$9 = "src/components/DietTracker.svelte";
 
-    // (88:4) {:else}
-    function create_else_block(ctx) {
+    // (184:4) {:else}
+    function create_else_block_1(ctx) {
     	let div;
     	let t0;
     	let button;
@@ -2401,9 +2786,9 @@ var app = (function () {
     		},
     		h: function hydrate() {
     			attr_dev(div, "class", "scan-box svelte-cu118e");
-    			add_location(div, file$9, 88, 8, 2826);
+    			add_location(div, file$9, 184, 8, 5398);
     			attr_dev(button, "class", "close-button svelte-cu118e");
-    			add_location(button, file$9, 89, 8, 2859);
+    			add_location(button, file$9, 185, 8, 5431);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, div, anchor);
@@ -2412,7 +2797,7 @@ var app = (function () {
     			append_hydration_dev(button, t1);
 
     			if (!mounted) {
-    				dispose = listen_dev(button, "click", /*closeCamera*/ ctx[5], false, false, false);
+    				dispose = listen_dev(button, "click", /*closeCamera*/ ctx[8], false, false, false);
     				mounted = true;
     			}
     		},
@@ -2428,108 +2813,384 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_else_block.name,
+    		id: create_else_block_1.name,
     		type: "else",
-    		source: "(88:4) {:else}",
+    		source: "(184:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (79:4) {#if showForm}
+    // (145:4) {#if showForm}
     function create_if_block(ctx) {
-    	let form;
-    	let input;
+    	let div0;
     	let t0;
-    	let button0;
+    	let t1_value = `${/*$dailyDietData*/ ctx[4].currentCalories}/${/*calorieGoal*/ ctx[3]}` + "";
     	let t1;
     	let t2;
-    	let button1;
+    	let b;
     	let t3;
     	let t4;
-    	let div;
-    	let p;
+    	let t5_value = `${/*$dailyDietData*/ ctx[4].totalCarbs}` + "";
     	let t5;
-    	let t6_value = JSON.stringify(/*foodData*/ ctx[1]) + "";
     	let t6;
+    	let t7_value = `${/*$dailyDietData*/ ctx[4].totalProtein}` + "";
+    	let t7;
+    	let t8;
+    	let t9_value = `${/*$dailyDietData*/ ctx[4].totalFat}` + "";
+    	let t9;
+    	let t10;
+    	let form0;
+    	let input;
+    	let t11;
+    	let form1;
+    	let t12;
+    	let div1;
+    	let p;
+    	let t13;
+    	let t14_value = JSON.stringify(/*foodData*/ ctx[1]) + "";
+    	let t14;
+    	let mounted;
+    	let dispose;
+
+    	let info = {
+    		ctx,
+    		current: null,
+    		token: null,
+    		hasCatch: false,
+    		pending: create_pending_block,
+    		then: create_then_block,
+    		catch: create_catch_block,
+    		value: 19
+    	};
+
+    	handle_promise(/*platform*/ ctx[5], info);
+
+    	const block = {
+    		c: function create() {
+    			div0 = element("div");
+    			t0 = text("Calories: ");
+    			t1 = text(t1_value);
+    			t2 = space();
+    			b = element("b");
+    			t3 = text("Macros:");
+    			t4 = text("\n            Carbohydrates: ");
+    			t5 = text(t5_value);
+    			t6 = text("\n            Protein: ");
+    			t7 = text(t7_value);
+    			t8 = text("\n            Fat: ");
+    			t9 = text(t9_value);
+    			t10 = space();
+    			form0 = element("form");
+    			input = element("input");
+    			t11 = space();
+    			form1 = element("form");
+    			info.block.c();
+    			t12 = space();
+    			div1 = element("div");
+    			p = element("p");
+    			t13 = text("Data: ");
+    			t14 = text(t14_value);
+    			this.h();
+    		},
+    		l: function claim(nodes) {
+    			div0 = claim_element(nodes, "DIV", { class: true });
+    			var div0_nodes = children(div0);
+    			t0 = claim_text(div0_nodes, "Calories: ");
+    			t1 = claim_text(div0_nodes, t1_value);
+    			t2 = claim_space(div0_nodes);
+    			b = claim_element(div0_nodes, "B", {});
+    			var b_nodes = children(b);
+    			t3 = claim_text(b_nodes, "Macros:");
+    			b_nodes.forEach(detach_dev);
+    			t4 = claim_text(div0_nodes, "\n            Carbohydrates: ");
+    			t5 = claim_text(div0_nodes, t5_value);
+    			t6 = claim_text(div0_nodes, "\n            Protein: ");
+    			t7 = claim_text(div0_nodes, t7_value);
+    			t8 = claim_text(div0_nodes, "\n            Fat: ");
+    			t9 = claim_text(div0_nodes, t9_value);
+    			t10 = claim_space(div0_nodes);
+    			form0 = claim_element(div0_nodes, "FORM", {});
+    			var form0_nodes = children(form0);
+    			input = claim_element(form0_nodes, "INPUT", { type: true, placeholder: true });
+    			form0_nodes.forEach(detach_dev);
+    			div0_nodes.forEach(detach_dev);
+    			t11 = claim_space(nodes);
+    			form1 = claim_element(nodes, "FORM", {});
+    			var form1_nodes = children(form1);
+    			info.block.l(form1_nodes);
+    			form1_nodes.forEach(detach_dev);
+    			t12 = claim_space(nodes);
+    			div1 = claim_element(nodes, "DIV", {});
+    			var div1_nodes = children(div1);
+    			p = claim_element(div1_nodes, "P", {});
+    			var p_nodes = children(p);
+    			t13 = claim_text(p_nodes, "Data: ");
+    			t14 = claim_text(p_nodes, t14_value);
+    			p_nodes.forEach(detach_dev);
+    			div1_nodes.forEach(detach_dev);
+    			this.h();
+    		},
+    		h: function hydrate() {
+    			add_location(b, file$9, 148, 12, 4214);
+    			attr_dev(input, "type", "text");
+    			attr_dev(input, "placeholder", "Barcode");
+    			add_location(input, file$9, 154, 16, 4430);
+    			add_location(form0, file$9, 153, 12, 4407);
+    			attr_dev(div0, "class", "daily-progress");
+    			add_location(div0, file$9, 145, 8, 4097);
+    			add_location(form1, file$9, 162, 8, 4619);
+    			add_location(p, file$9, 181, 12, 5323);
+    			add_location(div1, file$9, 180, 8, 5305);
+    		},
+    		m: function mount(target, anchor) {
+    			insert_hydration_dev(target, div0, anchor);
+    			append_hydration_dev(div0, t0);
+    			append_hydration_dev(div0, t1);
+    			append_hydration_dev(div0, t2);
+    			append_hydration_dev(div0, b);
+    			append_hydration_dev(b, t3);
+    			append_hydration_dev(div0, t4);
+    			append_hydration_dev(div0, t5);
+    			append_hydration_dev(div0, t6);
+    			append_hydration_dev(div0, t7);
+    			append_hydration_dev(div0, t8);
+    			append_hydration_dev(div0, t9);
+    			append_hydration_dev(div0, t10);
+    			append_hydration_dev(div0, form0);
+    			append_hydration_dev(form0, input);
+    			set_input_value(input, /*calorieGoal*/ ctx[3]);
+    			insert_hydration_dev(target, t11, anchor);
+    			insert_hydration_dev(target, form1, anchor);
+    			info.block.m(form1, info.anchor = null);
+    			info.mount = () => form1;
+    			info.anchor = null;
+    			insert_hydration_dev(target, t12, anchor);
+    			insert_hydration_dev(target, div1, anchor);
+    			append_hydration_dev(div1, p);
+    			append_hydration_dev(p, t13);
+    			append_hydration_dev(p, t14);
+
+    			if (!mounted) {
+    				dispose = listen_dev(input, "input", /*input_input_handler*/ ctx[9]);
+    				mounted = true;
+    			}
+    		},
+    		p: function update(new_ctx, dirty) {
+    			ctx = new_ctx;
+    			if (dirty & /*$dailyDietData, calorieGoal*/ 24 && t1_value !== (t1_value = `${/*$dailyDietData*/ ctx[4].currentCalories}/${/*calorieGoal*/ ctx[3]}` + "")) set_data_dev(t1, t1_value);
+    			if (dirty & /*$dailyDietData*/ 16 && t5_value !== (t5_value = `${/*$dailyDietData*/ ctx[4].totalCarbs}` + "")) set_data_dev(t5, t5_value);
+    			if (dirty & /*$dailyDietData*/ 16 && t7_value !== (t7_value = `${/*$dailyDietData*/ ctx[4].totalProtein}` + "")) set_data_dev(t7, t7_value);
+    			if (dirty & /*$dailyDietData*/ 16 && t9_value !== (t9_value = `${/*$dailyDietData*/ ctx[4].totalFat}` + "")) set_data_dev(t9, t9_value);
+
+    			if (dirty & /*calorieGoal*/ 8 && input.value !== /*calorieGoal*/ ctx[3]) {
+    				set_input_value(input, /*calorieGoal*/ ctx[3]);
+    			}
+
+    			update_await_block_branch(info, ctx, dirty);
+    			if (dirty & /*foodData*/ 2 && t14_value !== (t14_value = JSON.stringify(/*foodData*/ ctx[1]) + "")) set_data_dev(t14, t14_value);
+    		},
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(div0);
+    			if (detaching) detach_dev(t11);
+    			if (detaching) detach_dev(form1);
+    			info.block.d();
+    			info.token = null;
+    			info = null;
+    			if (detaching) detach_dev(t12);
+    			if (detaching) detach_dev(div1);
+    			mounted = false;
+    			dispose();
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_if_block.name,
+    		type: "if",
+    		source: "(145:4) {#if showForm}",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (1:0) <script>     import { getFactsByBarcode }
+    function create_catch_block(ctx) {
+    	const block = {
+    		c: noop,
+    		l: noop,
+    		m: noop,
+    		p: noop,
+    		d: noop
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_catch_block.name,
+    		type: "catch",
+    		source: "(1:0) <script>     import { getFactsByBarcode }",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (164:49)                  {#if devicePlatform === 'web'}
+    function create_then_block(ctx) {
+    	let if_block_anchor;
+
+    	function select_block_type_1(ctx, dirty) {
+    		if (/*devicePlatform*/ ctx[19] === 'web') return create_if_block_1;
+    		return create_else_block;
+    	}
+
+    	let current_block_type = select_block_type_1(ctx);
+    	let if_block = current_block_type(ctx);
+
+    	const block = {
+    		c: function create() {
+    			if_block.c();
+    			if_block_anchor = empty();
+    		},
+    		l: function claim(nodes) {
+    			if_block.l(nodes);
+    			if_block_anchor = empty();
+    		},
+    		m: function mount(target, anchor) {
+    			if_block.m(target, anchor);
+    			insert_hydration_dev(target, if_block_anchor, anchor);
+    		},
+    		p: function update(ctx, dirty) {
+    			if_block.p(ctx, dirty);
+    		},
+    		d: function destroy(detaching) {
+    			if_block.d(detaching);
+    			if (detaching) detach_dev(if_block_anchor);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_then_block.name,
+    		type: "then",
+    		source: "(164:49)                  {#if devicePlatform === 'web'}",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (176:16) {:else}
+    function create_else_block(ctx) {
+    	let button;
+    	let t;
     	let mounted;
     	let dispose;
 
     	const block = {
     		c: function create() {
-    			form = element("form");
-    			input = element("input");
-    			t0 = space();
-    			button0 = element("button");
-    			t1 = text("Get Data");
-    			t2 = space();
-    			button1 = element("button");
-    			t3 = text("Scan for barcode");
-    			t4 = space();
-    			div = element("div");
-    			p = element("p");
-    			t5 = text("Data: ");
-    			t6 = text(t6_value);
+    			button = element("button");
+    			t = text("Scan for barcode");
     			this.h();
     		},
     		l: function claim(nodes) {
-    			form = claim_element(nodes, "FORM", {});
-    			var form_nodes = children(form);
-    			input = claim_element(form_nodes, "INPUT", { type: true, placeholder: true });
-    			t0 = claim_space(form_nodes);
-    			button0 = claim_element(form_nodes, "BUTTON", {});
-    			var button0_nodes = children(button0);
-    			t1 = claim_text(button0_nodes, "Get Data");
-    			button0_nodes.forEach(detach_dev);
-    			t2 = claim_space(form_nodes);
-    			button1 = claim_element(form_nodes, "BUTTON", {});
-    			var button1_nodes = children(button1);
-    			t3 = claim_text(button1_nodes, "Scan for barcode");
-    			button1_nodes.forEach(detach_dev);
-    			form_nodes.forEach(detach_dev);
-    			t4 = claim_space(nodes);
-    			div = claim_element(nodes, "DIV", {});
-    			var div_nodes = children(div);
-    			p = claim_element(div_nodes, "P", {});
-    			var p_nodes = children(p);
-    			t5 = claim_text(p_nodes, "Data: ");
-    			t6 = claim_text(p_nodes, t6_value);
-    			p_nodes.forEach(detach_dev);
-    			div_nodes.forEach(detach_dev);
+    			button = claim_element(nodes, "BUTTON", {});
+    			var button_nodes = children(button);
+    			t = claim_text(button_nodes, "Scan for barcode");
+    			button_nodes.forEach(detach_dev);
     			this.h();
     		},
     		h: function hydrate() {
-    			attr_dev(input, "type", "text");
-    			attr_dev(input, "placeholder", "Barcode");
-    			add_location(input, file$9, 80, 12, 2520);
-    			add_location(button0, file$9, 81, 12, 2597);
-    			add_location(button1, file$9, 82, 12, 2654);
-    			add_location(form, file$9, 79, 8, 2501);
-    			add_location(p, file$9, 85, 12, 2751);
-    			add_location(div, file$9, 84, 8, 2733);
+    			add_location(button, file$9, 176, 20, 5183);
     		},
     		m: function mount(target, anchor) {
-    			insert_hydration_dev(target, form, anchor);
-    			append_hydration_dev(form, input);
+    			insert_hydration_dev(target, button, anchor);
+    			append_hydration_dev(button, t);
+
+    			if (!mounted) {
+    				dispose = listen_dev(button, "click", /*startScan*/ ctx[7], false, false, false);
+    				mounted = true;
+    			}
+    		},
+    		p: noop,
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(button);
+    			mounted = false;
+    			dispose();
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_else_block.name,
+    		type: "else",
+    		source: "(176:16) {:else}",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (165:16) {#if devicePlatform === 'web'}
+    function create_if_block_1(ctx) {
+    	let label;
+    	let t0;
+    	let t1;
+    	let input;
+    	let t2;
+    	let button;
+    	let t3;
+    	let mounted;
+    	let dispose;
+
+    	const block = {
+    		c: function create() {
+    			label = element("label");
+    			t0 = text("Barcode scanner not available on web, please enter\n                        barcode manually:");
+    			t1 = space();
+    			input = element("input");
+    			t2 = space();
+    			button = element("button");
+    			t3 = text("Get Data");
+    			this.h();
+    		},
+    		l: function claim(nodes) {
+    			label = claim_element(nodes, "LABEL", {});
+    			var label_nodes = children(label);
+    			t0 = claim_text(label_nodes, "Barcode scanner not available on web, please enter\n                        barcode manually:");
+    			label_nodes.forEach(detach_dev);
+    			t1 = claim_space(nodes);
+    			input = claim_element(nodes, "INPUT", { type: true, placeholder: true });
+    			t2 = claim_space(nodes);
+    			button = claim_element(nodes, "BUTTON", {});
+    			var button_nodes = children(button);
+    			t3 = claim_text(button_nodes, "Get Data");
+    			button_nodes.forEach(detach_dev);
+    			this.h();
+    		},
+    		h: function hydrate() {
+    			add_location(label, file$9, 165, 20, 4743);
+    			attr_dev(input, "type", "text");
+    			attr_dev(input, "placeholder", "Barcode");
+    			add_location(input, file$9, 169, 20, 4917);
+    			add_location(button, file$9, 174, 20, 5094);
+    		},
+    		m: function mount(target, anchor) {
+    			insert_hydration_dev(target, label, anchor);
+    			append_hydration_dev(label, t0);
+    			insert_hydration_dev(target, t1, anchor);
+    			insert_hydration_dev(target, input, anchor);
     			set_input_value(input, /*barcode*/ ctx[0]);
-    			append_hydration_dev(form, t0);
-    			append_hydration_dev(form, button0);
-    			append_hydration_dev(button0, t1);
-    			append_hydration_dev(form, t2);
-    			append_hydration_dev(form, button1);
-    			append_hydration_dev(button1, t3);
-    			insert_hydration_dev(target, t4, anchor);
-    			insert_hydration_dev(target, div, anchor);
-    			append_hydration_dev(div, p);
-    			append_hydration_dev(p, t5);
-    			append_hydration_dev(p, t6);
+    			insert_hydration_dev(target, t2, anchor);
+    			insert_hydration_dev(target, button, anchor);
+    			append_hydration_dev(button, t3);
 
     			if (!mounted) {
     				dispose = [
-    					listen_dev(input, "input", /*input_input_handler*/ ctx[6]),
-    					listen_dev(button0, "click", /*getData*/ ctx[3], false, false, false),
-    					listen_dev(button1, "click", /*startScan*/ ctx[4], false, false, false)
+    					listen_dev(input, "input", /*input_input_handler_1*/ ctx[10]),
+    					listen_dev(button, "click", /*getData*/ ctx[6], false, false, false)
     				];
 
     				mounted = true;
@@ -2539,13 +3200,13 @@ var app = (function () {
     			if (dirty & /*barcode*/ 1 && input.value !== /*barcode*/ ctx[0]) {
     				set_input_value(input, /*barcode*/ ctx[0]);
     			}
-
-    			if (dirty & /*foodData*/ 2 && t6_value !== (t6_value = JSON.stringify(/*foodData*/ ctx[1]) + "")) set_data_dev(t6, t6_value);
     		},
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(form);
-    			if (detaching) detach_dev(t4);
-    			if (detaching) detach_dev(div);
+    			if (detaching) detach_dev(label);
+    			if (detaching) detach_dev(t1);
+    			if (detaching) detach_dev(input);
+    			if (detaching) detach_dev(t2);
+    			if (detaching) detach_dev(button);
     			mounted = false;
     			run_all(dispose);
     		}
@@ -2553,9 +3214,30 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block.name,
+    		id: create_if_block_1.name,
     		type: "if",
-    		source: "(79:4) {#if showForm}",
+    		source: "(165:16) {#if devicePlatform === 'web'}",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (1:0) <script>     import { getFactsByBarcode }
+    function create_pending_block(ctx) {
+    	const block = {
+    		c: noop,
+    		l: noop,
+    		m: noop,
+    		p: noop,
+    		d: noop
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_pending_block.name,
+    		type: "pending",
+    		source: "(1:0) <script>     import { getFactsByBarcode }",
     		ctx
     	});
 
@@ -2567,7 +3249,7 @@ var app = (function () {
 
     	function select_block_type(ctx, dirty) {
     		if (/*showForm*/ ctx[2]) return create_if_block;
-    		return create_else_block;
+    		return create_else_block_1;
     	}
 
     	let current_block_type = select_block_type(ctx);
@@ -2587,7 +3269,7 @@ var app = (function () {
     			this.h();
     		},
     		h: function hydrate() {
-    			add_location(main, file$9, 77, 0, 2467);
+    			add_location(main, file$9, 142, 0, 4009);
     		},
     		m: function mount(target, anchor) {
     			insert_hydration_dev(target, main, anchor);
@@ -2626,15 +3308,40 @@ var app = (function () {
     }
 
     function instance$9($$self, $$props, $$invalidate) {
+    	let $dailyDietData;
+    	validate_store(dailyDietData, 'dailyDietData');
+    	component_subscribe($$self, dailyDietData, $$value => $$invalidate(4, $dailyDietData = $$value));
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots('DietTracker', slots, []);
-    	let barcode = '0711575102005';
-    	let foodData = {};
-    	let showForm = true;
+    	const getPlatform = async () => (await Device.getInfo()).platform;
+    	let platform = getPlatform();
 
     	// Prepares scanner to speed up load times
     	BarcodeScanner.prepare();
 
+    	// Test barcode: 052000047066
+    	let barcode = '';
+
+    	let foodData = {};
+    	let showForm = true;
+
+    	// Handle calorie data
+    	let calorieGoal = 2000;
+
+    	let currentCalories = 0;
+
+    	// Handle Macro Data
+    	let totalProtein = 0;
+
+    	let totalCarbs = 0;
+    	let totalFat = 0;
+
+    	//
+    	// Component functions
+    	//
+    	/**
+     * Call API to get food data from barcode
+     */
     	const getData = async () => {
     		window.event.preventDefault();
     		const rawData = (await getFactsByBarcode(barcode)).product;
@@ -2652,29 +3359,33 @@ var app = (function () {
     			},
     			foodData
     		);
+
+    		processData(foodData);
     	};
 
+    	/**
+     * Scan for barcode
+     */
     	const startScan = async () => {
-    		if ((await Device.getInfo()).platform === 'web') {
-    			// TODO - remove show camera call and add error message for web instead
-    			showCamera();
+    		window.event.preventDefault();
 
+    		if (await Device.getInfo.platform === 'web') {
+    			// TODO - add error message for web instead
     			return;
     		}
 
     		// Check camera permission
-    		// This is just a simple example, check out the better checks below
+    		// TODO - Add more inclusive permission check
     		await BarcodeScanner.checkPermission({ force: true });
 
     		await showCamera();
-    		console.log('Camera overlay showing, about to scan');
-    		const result = await BarcodeScanner.startScan(); // start scanning and wait for a result
+    		console.log('Camera overlay showing, starting scanner...');
+    		const result = await BarcodeScanner.startScan();
 
-    		// if the result has content
-    		if (result.hasContent) {
+    		if (result && result.hasContent) {
     			console.log(result.content); // log the raw scanned content
     			$$invalidate(0, barcode = result.content);
-    			await closeCamera();
+    			closeCamera();
     			getData();
     		}
     	};
@@ -2686,7 +3397,6 @@ var app = (function () {
 
     	const showCamera = async () => {
     		$$invalidate(2, showForm = false);
-    		console.log('🚀 ~ file: DietTracker.svelte ~ line 62 ~ showCamera ~ showForm', showForm);
     		await BarcodeScanner.hideBackground();
     		document.getElementsByTagName('header')[0].style.visibility = 'hidden';
     	};
@@ -2697,7 +3407,53 @@ var app = (function () {
     		stopScan();
     	};
 
+    	/**
+     * Update total daily data with new ingested data
+     * @param foodData 040000422082
+     */
+    	const processData = foodData => {
+    		if (!foodData || !foodData.nutrients) {
+    			return;
+    		}
+
+    		set_store_value(dailyDietData, $dailyDietData.currentCalories += foodData.nutrients.calories || 0, $dailyDietData);
+    		set_store_value(dailyDietData, $dailyDietData.totalProtein += foodData.nutrients.protein || 0, $dailyDietData);
+    		set_store_value(dailyDietData, $dailyDietData.totalCarbs += foodData.nutrients.carbs || 0, $dailyDietData);
+    		set_store_value(dailyDietData, $dailyDietData.totalFat += foodData.nutrients.fat || 0, $dailyDietData);
+    		set_store_value(dailyDietData, $dailyDietData.currentDate = new Date().toLocaleDateString(), $dailyDietData);
+    	};
+
+    	/**
+     * Check if daily data has expired
+     */
+    	setInterval(
+    		() => {
+    			if (localStorage.getItem('DIET_DATA') && JSON.parse(localStorage.getItem('DIET_DATA')).currentDate != new Date().toLocaleDateString()) {
+    				console.log('Daily session expired, reloading page...');
+
+    				set_store_value(
+    					dailyDietData,
+    					$dailyDietData = {
+    						currentCalories: 0,
+    						totalProtein: 0,
+    						totalCarbs: 0,
+    						totalFat: 0,
+    						currentDate: new Date().toLocaleDateString()
+    					},
+    					$dailyDietData
+    				);
+
+    				$$invalidate(1, foodData = {});
+    			}
+    		},
+    		60000
+    	);
+
+    	/**
+     * Stop scanner when component is destroyed
+     */
     	onDestroy(() => BarcodeScanner.stopScan());
+
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
@@ -2705,6 +3461,11 @@ var app = (function () {
     	});
 
     	function input_input_handler() {
+    		calorieGoal = this.value;
+    		$$invalidate(3, calorieGoal);
+    	}
+
+    	function input_input_handler_1() {
     		barcode = this.value;
     		$$invalidate(0, barcode);
     	}
@@ -2714,20 +3475,36 @@ var app = (function () {
     		BarcodeScanner,
     		Device,
     		onDestroy,
+    		dailyDietData,
+    		getPlatform,
+    		platform,
     		barcode,
     		foodData,
     		showForm,
+    		calorieGoal,
+    		currentCalories,
+    		totalProtein,
+    		totalCarbs,
+    		totalFat,
     		getData,
     		startScan,
     		stopScan,
     		showCamera,
-    		closeCamera
+    		closeCamera,
+    		processData,
+    		$dailyDietData
     	});
 
     	$$self.$inject_state = $$props => {
+    		if ('platform' in $$props) $$invalidate(5, platform = $$props.platform);
     		if ('barcode' in $$props) $$invalidate(0, barcode = $$props.barcode);
     		if ('foodData' in $$props) $$invalidate(1, foodData = $$props.foodData);
     		if ('showForm' in $$props) $$invalidate(2, showForm = $$props.showForm);
+    		if ('calorieGoal' in $$props) $$invalidate(3, calorieGoal = $$props.calorieGoal);
+    		if ('currentCalories' in $$props) currentCalories = $$props.currentCalories;
+    		if ('totalProtein' in $$props) totalProtein = $$props.totalProtein;
+    		if ('totalCarbs' in $$props) totalCarbs = $$props.totalCarbs;
+    		if ('totalFat' in $$props) totalFat = $$props.totalFat;
     	};
 
     	if ($$props && "$$inject" in $$props) {
@@ -2738,10 +3515,14 @@ var app = (function () {
     		barcode,
     		foodData,
     		showForm,
+    		calorieGoal,
+    		$dailyDietData,
+    		platform,
     		getData,
     		startScan,
     		closeCamera,
-    		input_input_handler
+    		input_input_handler,
+    		input_input_handler_1
     	];
     }
 

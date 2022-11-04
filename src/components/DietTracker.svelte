@@ -3,15 +3,36 @@
     import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
     import { Device } from '@capacitor/device'
     import { onDestroy } from 'svelte'
+    import { dailyDietData } from '../store/diet-tracker-store'
 
-    // TODO - remove default barcode
-    let barcode = '0711575102005'
-    let foodData = {}
-    let showForm = true
+    const getPlatform = async () => (await Device.getInfo()).platform
+
+    let platform = getPlatform()
 
     // Prepares scanner to speed up load times
     BarcodeScanner.prepare()
 
+    // Test barcode: 052000047066
+    let barcode = ''
+    let foodData = {}
+    let showForm = true
+
+    // Handle calorie data
+    let calorieGoal = 2000
+    let currentCalories = 0
+
+    // Handle Macro Data
+    let totalProtein = 0
+    let totalCarbs = 0
+    let totalFat = 0
+
+    //
+    // Component functions
+    //
+
+    /**
+     * Call API to get food data from barcode
+     */
     const getData = async () => {
         window.event.preventDefault()
         const rawData = (await getFactsByBarcode(barcode)).product
@@ -25,28 +46,33 @@
             fat: rawData.nutriments.fat_serving,
             protein: rawData.nutriments.proteins_serving,
         }
+
+        processData(foodData)
     }
 
+    /**
+     * Scan for barcode
+     */
     const startScan = async () => {
-        if ((await Device.getInfo()).platform === 'web') {
-            // TODO - remove show camera call and add error message for web instead
-            showCamera()
+        window.event.preventDefault()
+        if ((await Device.getInfo.platform) === 'web') {
+            // TODO - add error message for web instead
             return
         }
+
         // Check camera permission
-        // This is just a simple example, check out the better checks below
+        // TODO - Add more inclusive permission check
         await BarcodeScanner.checkPermission({ force: true })
 
         await showCamera()
+        console.log('Camera overlay showing, starting scanner...')
 
-        console.log('Camera overlay showing, about to scan')
-        const result = await BarcodeScanner.startScan() // start scanning and wait for a result
+        const result = await BarcodeScanner.startScan()
 
-        // if the result has content
-        if (result.hasContent) {
+        if (result && result.hasContent) {
             console.log(result.content) // log the raw scanned content
             barcode = result.content
-            await closeCamera()
+            closeCamera()
             getData()
         }
     }
@@ -58,10 +84,7 @@
 
     const showCamera = async () => {
         showForm = false
-        console.log(
-            '🚀 ~ file: DietTracker.svelte ~ line 62 ~ showCamera ~ showForm',
-            showForm
-        )
+
         await BarcodeScanner.hideBackground()
         document.getElementsByTagName('header')[0].style.visibility = 'hidden'
     }
@@ -72,15 +95,88 @@
         stopScan()
     }
 
+    /**
+     * Update total daily data with new ingested data
+     * @param foodData 040000422082
+     */
+    const processData = (foodData) => {
+        if (!foodData || !foodData.nutrients) {
+            return
+        }
+
+        $dailyDietData.currentCalories += foodData.nutrients.calories || 0
+
+        $dailyDietData.totalProtein += foodData.nutrients.protein || 0
+        $dailyDietData.totalCarbs += foodData.nutrients.carbs || 0
+        $dailyDietData.totalFat += foodData.nutrients.fat || 0
+
+        $dailyDietData.currentDate = new Date().toLocaleDateString()
+    }
+
+    /**
+     * Check if daily data has expired
+     */
+    setInterval(() => {
+        if (
+            localStorage.getItem('DIET_DATA') &&
+            JSON.parse(localStorage.getItem('DIET_DATA')).currentDate !=
+                new Date().toLocaleDateString()
+        ) {
+            console.log('Daily session expired, reloading page...')
+            $dailyDietData = {
+                currentCalories: 0,
+                totalProtein: 0,
+                totalCarbs: 0,
+                totalFat: 0,
+                currentDate: new Date().toLocaleDateString(),
+            }
+            foodData = {}
+        }
+    }, 60000)
+
+    /**
+     * Stop scanner when component is destroyed
+     */
     onDestroy(() => BarcodeScanner.stopScan())
 </script>
 
 <main>
+    <!-- TODO - Move camera to separate component -->
     {#if showForm}
+        <div class="daily-progress">
+            Calories: {`${$dailyDietData.currentCalories}/${calorieGoal}`}
+
+            <b>Macros: </b>
+            Carbohydrates: {`${$dailyDietData.totalCarbs}`}
+            Protein: {`${$dailyDietData.totalProtein}`}
+            Fat: {`${$dailyDietData.totalFat}`}
+
+            <form>
+                <input
+                    bind:value={calorieGoal}
+                    type="text"
+                    placeholder="Barcode"
+                />
+            </form>
+        </div>
+
         <form>
-            <input bind:value={barcode} type="text" placeholder="Barcode" />
-            <button on:click={getData}>Get Data</button>
-            <button on:click={startScan}>Scan for barcode</button>
+            {#await platform then devicePlatform}
+                {#if devicePlatform === 'web'}
+                    <label>
+                        Barcode scanner not available on web, please enter
+                        barcode manually:
+                    </label>
+                    <input
+                        bind:value={barcode}
+                        type="text"
+                        placeholder="Barcode"
+                    />
+                    <button on:click={getData}>Get Data</button>
+                {:else}
+                    <button on:click={startScan}>Scan for barcode</button>
+                {/if}
+            {/await}
         </form>
         <div>
             <p>Data: {JSON.stringify(foodData)}</p>
