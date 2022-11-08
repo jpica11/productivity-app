@@ -1,6 +1,6 @@
 <script>
     import { getExercise } from '../service/exerciseParser'
-    let exerciseMap = getExercise('')
+    let exerciseMap = getExercise()
 
     console.log(exerciseMap)
 </script>
