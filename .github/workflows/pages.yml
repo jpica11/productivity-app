@@ -38,9 +38,7 @@ jobs:
           npm run build
       - name: Archive artifacts
         uses: actions/upload-artifact@v2
-        with:
-          name: ./
-          path: ./
+
   deploy:
     needs: [build]
     environment:
@@ -55,9 +53,6 @@ jobs:
         uses: actions/configure-pages@v2
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
-        with:
-          # Upload entire repository
-          path: './'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
