@@ -9,6 +9,8 @@
     import SleepTracker from './components/SleepTracker.svelte'
     import ToDoList from './components/ToDoList.svelte'
     import Calendar from './components/Planner.svelte'
+    import GroceryList from './components/GroceryList.svelte'
+    import Planner from './components/Planner.svelte'
 
     const basepath = window.location.href.includes('github.io')
         ? '/productivity-app/'
@@ -29,6 +31,7 @@
         <a href="{basepath}#/sleep">Sleep</a>
         <a href="{basepath}#/todo">To-Do</a>
         <a href="{basepath}#/planner">Planner</a>
+        <a href="{basepath}#/groceries">Grocery List</a>
     </nav>
 </header>
 <Router
@@ -42,6 +45,8 @@
         '/sleep': SleepTracker,
         '/todo': ToDoList,
         '/calendar': Calendar,
+        '/groceries': GroceryList,
+        '/plannger': Planner,
     }}
 />
 

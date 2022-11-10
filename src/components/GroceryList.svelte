@@ -1,9 +1,12 @@
 <script>
-    import { todo } from '../store/todo'
+    import { groceries } from '../store/groceryList'
     let newTask = ''
 
     function addToList() {
-        $todo = [...$todo, { name: newTask, completed: false, subtask: [] }]
+        $groceries = [
+            ...$groceries,
+            { name: newTask, completed: false, subtask: [] },
+        ]
         window.event.preventDefault()
         newTask = ''
     }
@@ -13,22 +16,22 @@
             ...item.subtask,
             { name: item.placeholder, completed: false, subtask: [] },
         ]
-        $todo.splice(index, 1, item)
-        $todo = $todo
+        $groceries.splice(index, 1, item)
+        $groceries = $groceries
 
         window.event.preventDefault()
     }
 
     function removeFromList(index) {
-        $todo.splice(index, 1)
-        $todo = $todo
+        $groceries.splice(index, 1)
+        $groceries = $groceries
     }
 
     function removeSubtaskFromList(item, index, subIndex) {
         item.subtask.splice(subIndex, 1)
 
-        $todo.splice(index, 1, item)
-        $todo = $todo
+        $groceries.splice(index, 1, item)
+        $groceries = $groceries
     }
 
     function showSubtaskForm() {
@@ -42,20 +45,20 @@
     }
 </script>
 
-<h1>TO-DO LIST COMPONENT</h1>
+<h1>Grocery List</h1>
 <div class="component">
     <form>
         <input
             class="todo-enter-input"
             bind:value={newTask}
             type="text"
-            placeholder="New TODO Item..."
+            placeholder="Grocery Item"
         />
         <button class="todo-enter-button" on:click={addToList}>Add</button>
     </form>
 
     <br />
-    {#each $todo as item, index}
+    {#each $groceries as item, index}
         <div class="task-container">
             <input bind:checked={item.completed} type="checkbox" />
             <h2 class:checked={item.completed}>{item.name}</h2>
