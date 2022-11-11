@@ -61,4 +61,6 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
-        path: ./dist
+        with:
+          name: deploy-files
+          path: ./dist
