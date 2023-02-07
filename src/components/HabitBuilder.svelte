@@ -1,6 +1,6 @@
 <script>
     import { habitList } from '../store/habitList'
-    import Calendar from './children/Calendar.svelte'
+    import Calendar from './child-components/Calendar.svelte'
 
     let habit = {
         name: '',

@@ -1,7 +1,7 @@
 {
     "appId": "com.jpd.productivity",
     "appName": "Health and Productivity",
-    "webDir": "public",
+    "webDir": "dist",
     "bundledWebRuntime": false,
     "server": {
         "url": "https://jpica11.github.io/productivity-app/"

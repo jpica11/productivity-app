@@ -11,6 +11,9 @@
     import Calendar from './components/Planner.svelte'
     import GroceryList from './components/GroceryList.svelte'
     import Planner from './components/Planner.svelte'
+    import Notes from './components/notes-component/Notes.svelte'
+    import Note from './components/notes-component/Note.svelte'
+    import NewNote from './components/notes-component/NewNote.svelte'
 
     const basepath = window.location.href.includes('github.io')
         ? '/productivity-app/'
@@ -32,6 +35,7 @@
         <a href="{basepath}#/todo">To-Do</a>
         <a href="{basepath}#/planner">Planner</a>
         <a href="{basepath}#/groceries">Grocery List</a>
+        <a href="{basepath}#/notes">Notes</a>
     </nav>
 </header>
 <Router
@@ -46,15 +50,22 @@
         '/todo': ToDoList,
         '/calendar': Calendar,
         '/groceries': GroceryList,
-        '/plannger': Planner,
+        '/planner': Planner,
+        '/notes': Notes,
+        '/notes/new': NewNote,
+        '/notes/:id': Note,
     }}
 />
 
 <style>
+    :global(body) {
+        background-color: black;
+        color: white;
+    }
     h1 {
-        color: #ff3e00;
+        color: #a1a1a1;
         text-transform: uppercase;
         font-size: 4em;
-        font-weight: 100;
+        font-weight: bold;
     }
 </style>

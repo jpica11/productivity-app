@@ -1,6 +1,10 @@
 <script>
-    import { todo } from '../store/todo'
+    import { todo, getData } from '../store/todo'
     let newTask = ''
+
+    const test = getData(
+        'https://3f9bwbv068.execute-api.us-east-1.amazonaws.com/prod/productivity-app/test?id=test1&type=test&amount=test'
+    )
 
     function addToList() {
         $todo = [...$todo, { name: newTask, completed: false, subtask: [] }]
@@ -43,6 +47,10 @@
 </script>
 
 <h1>TO-DO LIST COMPONENT</h1>
+{#await $test}
+    {JSON.stringify($test)}
+{/await}
+
 <div class="component">
     <form>
         <input
